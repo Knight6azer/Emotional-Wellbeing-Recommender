@@ -1,8 +1,11 @@
-import tkinter as tk
+import customtkinter as ctk
 from emotion_app.ui import EmotionRecommenderApp
 
 def main():
-    root = tk.Tk()
+    ctk.set_appearance_mode("Dark")
+    ctk.set_default_color_theme("dark-blue")
+    
+    root = ctk.CTk()
     app = EmotionRecommenderApp(root)
     root.mainloop()
 

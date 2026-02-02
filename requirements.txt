@@ -24,4 +24,5 @@ joblib>=1.1.0
 # - On Windows, if installing PyAudio from PyPI fails, use:
 #   pip install pipwin && pipwin install pyaudio
 # - TensorFlow and DeepFace may require additional setup. If TensorFlow fails, the app will use alternative methods.
-# - For GPU support with TensorFlow, install tensorflow-gpu instead
+# GUI dependencies
+customtkinter>=5.2.0

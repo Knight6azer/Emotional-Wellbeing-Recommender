@@ -1,4 +1,5 @@
 import tkinter as tk
+import customtkinter as ctk
 from tkinter import ttk, scrolledtext, messagebox
 import cv2
 import time
@@ -98,14 +99,14 @@ class EmotionRecommenderApp:
             self.root = root
             self.root.title(APP_TITLE)
             self.root.geometry(WINDOW_SIZE)
-            self.root.configure(bg=BACKGROUND_COLOR)
+            # self.root.configure(bg=BACKGROUND_COLOR) # Managed by CustomTkinter
             self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
             # --- Initialize Modular Components ---
             print("Initializing emotion detection modules...")
             
             # 1. Vision Module
-            self.vision = VisionAnalyzer()
+            self.vision_analyzer = VisionAnalyzer()
             
             # 2. Text Module
             self.text_analyzer = TextAnalyzer()
@@ -373,23 +374,22 @@ class EmotionRecommenderApp:
             warning_text += "\n\nThe application will work with available features."
             
             # Show warning dialog
-            dialog = tk.Toplevel(self.root)
+            dialog = ctk.CTkToplevel(self.root)
             dialog.title("System Status")
             dialog.geometry("500x300")
-            dialog.configure(bg=BACKGROUND_COLOR)
             
             # Make dialog modal
             dialog.transient(self.root)
             dialog.grab_set()
             
             # Add message
-            message = tk.Label(dialog, text=warning_text,
-                                bg=BACKGROUND_COLOR, fg="#f39c12", font=(FONT_FAMILY, 11),
+            message = ctk.CTkLabel(dialog, text=warning_text,
+                                text_color="#f39c12", font=(FONT_FAMILY, 11),
                                 justify="left", wraplength=450)
             message.pack(pady=20, padx=20, fill="both", expand=True)
             
             # Add OK button
-            ok_button = ttk.Button(dialog, text="Continue", command=dialog.destroy)
+            ok_button = ctk.CTkButton(dialog, text="Continue", command=dialog.destroy)
             ok_button.pack(pady=10)
             
             # Auto-close after 10 seconds
@@ -402,50 +402,69 @@ class EmotionRecommenderApp:
         pass
 
     def create_header(self):
-        header = tk.Frame(self.root, bg=BACKGROUND_COLOR)
+        header = ctk.CTkFrame(self.root, fg_color="transparent")
         header.pack(fill="x", padx=20, pady=(12, 0))
-        title = tk.Label(header, text=APP_TITLE, bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=(FONT_FAMILY, 18, "bold"))
+        
+        title = ctk.CTkLabel(header, text=APP_TITLE, font=(FONT_FAMILY, 24, "bold"))
         title.pack(side="left")
-        subtitle = tk.Label(header, text="Multimodal wellbeing insights", bg=BACKGROUND_COLOR, fg="#95a5a6", font=(FONT_FAMILY, 10))
-        subtitle.pack(side="left", padx=(10, 0))
+        
+        subtitle = ctk.CTkLabel(header, text="Multimodal wellbeing insights", 
+                               text_color="#95a5a6", font=(FONT_FAMILY, 14))
+        subtitle.pack(side="left", padx=(15, 0), pady=(8, 0))
+
+    def create_styled_frame(self, parent, title):
+        container = ctk.CTkFrame(parent, fg_color="transparent")
+        container.pack(fill="both", expand=True, pady=10)
+        
+        title_label = ctk.CTkLabel(container, text=title, font=(FONT_FAMILY, 14, "bold"))
+        title_label.pack(anchor="w", padx=5, pady=(0, 5))
+        
+        frame = ctk.CTkFrame(container)
+        frame.pack(fill="both", expand=True, ipadx=10, ipady=10)
+        return frame
 
     def create_widgets(self):
         """Creates and arranges all UI widgets."""
-        main_frame = tk.Frame(self.root, bg=BACKGROUND_COLOR)
+        main_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
         # --- Left Panel: Inputs ---
-        left_panel = tk.Frame(main_frame, bg=BACKGROUND_COLOR)
+        left_panel = ctk.CTkFrame(main_frame, fg_color="transparent")
         left_panel.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
         # Video
         video_frame = self.create_styled_frame(left_panel, "Visual Input (Camera)")
-        self.video_label = tk.Label(video_frame, bg="black")
-        self.video_label.pack(pady=10, padx=10, expand=True, fill="both")
+        # For video label, we use a standard Label inside a CTkFrame because CTkLabel handling of images can be tricky with continuous updates
+        # But let's try CTkLabel first. If it flickers or has issues, we can revert this specific widget.
+        # Actually standard tk.Label is often better for raw high-fps image updates in some cases, but CTkLabel should work.
+        # Let's use tk.Label for the video stream component specifically to be safe, but styled.
+        video_inner = tk.Label(video_frame, bg="black") 
+        video_inner.pack(pady=10, padx=10, expand=True, fill="both")
+        self.video_label = video_inner
         
         # Camera control buttons frame
-        camera_buttons_frame = tk.Frame(video_frame, bg=BACKGROUND_COLOR)
+        camera_buttons_frame = ctk.CTkFrame(video_frame, fg_color="transparent")
         camera_buttons_frame.pack(pady=(0, 10), fill="x")
         
-        self.camera_button = ttk.Button(camera_buttons_frame, text="Start Camera", command=self.toggle_camera)
+        self.camera_button = ctk.CTkButton(camera_buttons_frame, text="Start Camera", command=self.toggle_camera)
         self.camera_button.pack(side="left", padx=(10, 5), expand=True)
         
-        self.take_photo_button = ttk.Button(camera_buttons_frame, text="Capture", command=self.take_photo)
+        self.take_photo_button = ctk.CTkButton(camera_buttons_frame, text="Capture", command=self.take_photo, state="disabled")
         self.take_photo_button.pack(side="right", padx=(5, 10), expand=True)
-        self.take_photo_button.config(state="disabled")  # Disabled until camera starts
         
         # Visual Emotions Dashboard
         self.visual_dashboard = self.create_styled_frame(left_panel, "Facial Emotion Dashboard")
         self.facial_emotion_bars = {}
         for emotion in EMOTIONS:
-            frame = tk.Frame(self.visual_dashboard, bg=BACKGROUND_COLOR)
+            frame = ctk.CTkFrame(self.visual_dashboard, fg_color="transparent")
             frame.pack(fill="x", padx=10, pady=2)
             
-            label = tk.Label(frame, text=emotion.capitalize(), width=10, anchor="w", bg=BACKGROUND_COLOR, fg=TEXT_COLOR)
+            label = ctk.CTkLabel(frame, text=emotion.capitalize(), width=70, anchor="w")
             label.pack(side="left")
             
-            progress = ttk.Progressbar(frame, length=150)
-            progress.pack(side="left", fill="x", expand=True)
+            progress = ctk.CTkProgressBar(frame)
+            progress.set(0)
+            progress.pack(side="left", fill="x", expand=True, padx=(10, 0))
             
             self.facial_emotion_bars[emotion] = progress
 
@@ -453,41 +472,34 @@ class EmotionRecommenderApp:
         text_frame = self.create_styled_frame(left_panel, "Text Input & Voice Recognition")
         
         # Voice control buttons frame
-        voice_controls_frame = tk.Frame(text_frame, bg=BACKGROUND_COLOR)
+        voice_controls_frame = ctk.CTkFrame(text_frame, fg_color="transparent")
         voice_controls_frame.pack(fill="x", padx=10, pady=(10, 5))
         
-        # Voice recording button with better styling
-        self.voice_button = ttk.Button(voice_controls_frame, text="[MIC] Start Voice Input", command=self.toggle_voice_recording)
+        # Voice recording button
+        self.voice_button = ctk.CTkButton(voice_controls_frame, text="[MIC] Start Voice Input", command=self.toggle_voice_recording)
         self.voice_button.pack(side="left", padx=(0, 10))
         
         # Voice status indicator
-        self.voice_status_label = tk.Label(voice_controls_frame, text="Voice: Ready", bg=BACKGROUND_COLOR, fg="#2ecc71", font=(FONT_FAMILY, 10, "bold"))
+        self.voice_status_label = ctk.CTkLabel(voice_controls_frame, text="Voice: Ready", text_color="#2ecc71", font=(FONT_FAMILY, 12, "bold"))
         self.voice_status_label.pack(side="left", padx=(0, 10))
         
         # Clear text button
-        clear_button = ttk.Button(voice_controls_frame, text="Clear Text", command=self.clear_text_input)
+        clear_button = ctk.CTkButton(voice_controls_frame, text="Clear Text", command=self.clear_text_input, fg_color="#e74c3c", hover_color="#c0392b") # Red color handling
         clear_button.pack(side="right")
         
         # Enhanced text input area
-        self.text_input = scrolledtext.ScrolledText(
+        self.text_input = ctk.CTkTextbox(
             text_frame, 
-            height=12,  # Increased height
-            bg="#34495e", 
-            fg=TEXT_COLOR, 
-            font=(FONT_FAMILY, 14, "normal"),  # Larger font
-            insertbackground=TEXT_COLOR, 
-            relief="flat", 
-            borderwidth=3,
-            wrap=tk.WORD,
-            padx=15,
-            pady=15
+            height=150,
+            font=(FONT_FAMILY, 14),
+            wrap="word"
         )
         self.text_input.pack(pady=10, padx=10, expand=True, fill="both")
         self.text_input.bind("<KeyRelease>", self.update_text_analysis)
         
-        # Add placeholder text
+        # Add placeholder text logic
         self.text_input.insert("1.0", "Type how you feel or use voice input to express your emotions...")
-        self.text_input.config(fg="#95a5a6")  # Gray placeholder color
+        # Note: CTkTextbox doesn't have direct fg config for placeholder, we manage it via logic
         self.text_input.bind("<FocusIn>", self.on_text_focus_in)
         self.text_input.bind("<FocusOut>", self.on_text_focus_out)
         
@@ -495,95 +507,96 @@ class EmotionRecommenderApp:
         self.text_dashboard = self.create_styled_frame(left_panel, "Text Emotion Dashboard")
         self.text_emotion_bars = {}
         for emotion in EMOTIONS:
-            frame = tk.Frame(self.text_dashboard, bg=BACKGROUND_COLOR)
+            frame = ctk.CTkFrame(self.text_dashboard, fg_color="transparent")
             frame.pack(fill="x", padx=10, pady=2)
             
-            label = tk.Label(frame, text=emotion.capitalize(), width=10, anchor="w", bg=BACKGROUND_COLOR, fg=TEXT_COLOR)
+            label = ctk.CTkLabel(frame, text=emotion.capitalize(), width=70, anchor="w")
             label.pack(side="left")
             
-            progress = ttk.Progressbar(frame, length=150)
-            progress.pack(side="left", fill="x", expand=True)
+            progress = ctk.CTkProgressBar(frame)
+            progress.set(0)
+            progress.pack(side="left", fill="x", expand=True, padx=(10, 0))
             
             self.text_emotion_bars[emotion] = progress
             
         # Emotional Stability Score
         stability_frame = self.create_styled_frame(left_panel, "Emotional Stability")
-        self.stability_score_label = tk.Label(stability_frame, text="Calculating...", bg=BACKGROUND_COLOR, fg="#3498db", font=(FONT_FAMILY, 14, "bold"))
+        self.stability_score_label = ctk.CTkLabel(stability_frame, text="Calculating...", text_color="#3498db", font=(FONT_FAMILY, 14, "bold"))
         self.stability_score_label.pack(pady=5)
-        self.stability_progress = ttk.Progressbar(stability_frame, length=200)
+        self.stability_progress = ctk.CTkProgressBar(stability_frame, width=200)
+        self.stability_progress.set(0)
         self.stability_progress.pack(pady=5, fill="x", padx=10)
 
         # --- Right Panel: Analysis & Recommendations ---
-        right_panel = tk.Frame(main_frame, bg=BACKGROUND_COLOR)
+        right_panel = ctk.CTkFrame(main_frame, fg_color="transparent")
         right_panel.pack(side="right", fill="both", expand=True, padx=(10, 0))
 
         # Audio Emotions Dashboard with Voice Controls
         self.audio_dashboard = self.create_styled_frame(right_panel, "Voice Emotion Dashboard")
         
         # Voice recording controls
-        voice_control_frame = tk.Frame(self.audio_dashboard, bg=BACKGROUND_COLOR)
+        voice_control_frame = ctk.CTkFrame(self.audio_dashboard, fg_color="transparent")
         voice_control_frame.pack(fill="x", padx=10, pady=(0, 10))
         
         # Audio capture button
-        self.audio_capture_button = ttk.Button(voice_control_frame, text="[AUDIO] Capture Voice Emotion", command=self.capture_audio_emotion)
+        self.audio_capture_button = ctk.CTkButton(voice_control_frame, text="[AUDIO] Capture Voice Emotion", command=self.capture_audio_emotion)
         self.audio_capture_button.pack(side="left", padx=(0, 10))
         
         # Audio level indicator
-        self.audio_level_label = tk.Label(voice_control_frame, text="Audio Level: --", bg=BACKGROUND_COLOR, fg="#f39c12", font=(FONT_FAMILY, 10))
+        self.audio_level_label = ctk.CTkLabel(voice_control_frame, text="Audio Level: --", text_color="#f39c12", font=(FONT_FAMILY, 12))
         self.audio_level_label.pack(side="left")
         
         # Audio visualization canvas
+        # Canvas is tk specific, but can live inside CTk. 
         self.audio_canvas = tk.Canvas(self.audio_dashboard, height=60, bg="#2c3e50", highlightthickness=0)
         self.audio_canvas.pack(fill="x", padx=10, pady=(0, 10))
         
         # Audio emotion bars
         self.audio_emotion_bars = {}
         for emotion in EMOTIONS:
-            frame = tk.Frame(self.audio_dashboard, bg=BACKGROUND_COLOR)
+            frame = ctk.CTkFrame(self.audio_dashboard, fg_color="transparent")
             frame.pack(fill="x", padx=10, pady=2)
             
-            label = tk.Label(frame, text=emotion.capitalize(), width=10, anchor="w", bg=BACKGROUND_COLOR, fg=TEXT_COLOR)
+            label = ctk.CTkLabel(frame, text=emotion.capitalize(), width=70, anchor="w")
             label.pack(side="left")
             
-            progress = ttk.Progressbar(frame, length=150)
-            progress.pack(side="left", fill="x", expand=True)
+            progress = ctk.CTkProgressBar(frame)
+            progress.set(0)
+            progress.pack(side="left", fill="x", expand=True, padx=(10, 0))
             
             self.audio_emotion_bars[emotion] = progress
 
         # Combined Emotion with Enhanced Display
         combined_frame = self.create_styled_frame(right_panel, "Dominant Emotion Analysis")
         
-        # Main emotion display with larger, more prominent text
-        emotion_display_frame = tk.Frame(combined_frame, bg=BACKGROUND_COLOR)
+        # Main emotion display
+        emotion_display_frame = ctk.CTkFrame(combined_frame, fg_color="transparent")
         emotion_display_frame.pack(fill="x", pady=20, padx=20)
         
-        self.dominant_emotion_label = tk.Label(
+        self.dominant_emotion_label = ctk.CTkLabel(
             emotion_display_frame, 
             text="Calculating...", 
-            bg=BACKGROUND_COLOR, 
-            fg="#3498db", 
-            font=(FONT_FAMILY, 28, "bold"),  # Much larger font
+            text_color="#3498db", 
+            font=(FONT_FAMILY, 28, "bold"),
             wraplength=400,
             justify="center"
         )
         self.dominant_emotion_label.pack(pady=10)
         
         # Confidence indicator
-        self.confidence_label = tk.Label(
+        self.confidence_label = ctk.CTkLabel(
             emotion_display_frame, 
             text="", 
-            bg=BACKGROUND_COLOR, 
-            fg="#95a5a6", 
+            text_color="#95a5a6", 
             font=(FONT_FAMILY, 14, "normal")
         )
         self.confidence_label.pack(pady=(0, 10))
         
         # Modality agreement display
-        self.agreement_label = tk.Label(
+        self.agreement_label = ctk.CTkLabel(
             combined_frame, 
             text="", 
-            bg=BACKGROUND_COLOR, 
-            fg="#bdc3c7", 
+            text_color="#bdc3c7", 
             font=(FONT_FAMILY, 12, "normal"),
             wraplength=450,
             justify="center"
@@ -592,33 +605,42 @@ class EmotionRecommenderApp:
 
         # Enhanced Recommendation Display
         reco_frame = self.create_styled_frame(right_panel, "Personalized Wellbeing Recommendation")
-        self.recommendation_label = tk.Label(
+        self.recommendation_label = ctk.CTkLabel(
             reco_frame, 
             text="Enter input to get a personalized recommendation.", 
-            bg=BACKGROUND_COLOR, 
-            fg=TEXT_COLOR, 
-            font=(FONT_FAMILY, 13, "normal"),  # Larger font
-            wraplength=500,  # Wider text area
+            font=(FONT_FAMILY, 13, "normal"),
+            wraplength=500,
             justify="left",
-            anchor="nw"
+            anchor="w"
         )
         self.recommendation_label.pack(pady=20, padx=15, fill="both", expand=True)
         
         # Analytics Dashboard
         analytics_frame = self.create_styled_frame(right_panel, "Multimodal Emotion Graph")
         
-        # Create matplotlib figure for emotion history with error handling
+        # Matplotlib logic remains largely the same, but we need to ensure colors match theme
         try:
             if not MATPLOTLIB_AVAILABLE or plt is None:
                 raise ImportError("Matplotlib not available")
             
+            # Use dark background for plot
             self.fig, self.ax = plt.subplots(figsize=(5, 3))
-            self.fig.patch.set_facecolor(BACKGROUND_COLOR)
-            self.ax.set_facecolor(BACKGROUND_COLOR)
-            self.ax.tick_params(colors=TEXT_COLOR)
-            self.ax.set_title("Emotion History", color=TEXT_COLOR)
-            self.ax.set_xlabel("Time", color=TEXT_COLOR)
-            self.ax.set_ylabel("Intensity", color=TEXT_COLOR)
+            
+            # Set to a dark color matching the theme
+            plot_bg = "#2b2b2b" # approximation of CTk dark
+            self.fig.patch.set_facecolor(plot_bg)
+            self.ax.set_facecolor(plot_bg)
+            self.ax.tick_params(colors="white")
+            self.ax.spines['bottom'].set_color('white')
+            self.ax.spines['top'].set_color('white') 
+            self.ax.spines['left'].set_color('white')
+            self.ax.spines['right'].set_color('white')
+            self.ax.xaxis.label.set_color('white')
+            self.ax.yaxis.label.set_color('white')
+            
+            self.ax.set_title("Emotion History", color="white")
+            self.ax.set_xlabel("Time", color="white")
+            self.ax.set_ylabel("Intensity", color="white")
             
             # Create canvas for matplotlib figure
             self.canvas = FigureCanvasTkAgg(self.fig, master=analytics_frame)
@@ -626,12 +648,10 @@ class EmotionRecommenderApp:
             self.matplotlib_available = True
         except Exception as e:
             print(f"Warning: Matplotlib initialization failed: {e}")
-            # Create a placeholder label if matplotlib fails
-            error_label = tk.Label(
+            error_label = ctk.CTkLabel(
                 analytics_frame,
                 text=f"Analytics unavailable:\n{str(e)[:50]}...",
-                bg=BACKGROUND_COLOR,
-                fg="#e74c3c",
+                text_color="#e74c3c",
                 font=(FONT_FAMILY, 10)
             )
             error_label.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -641,28 +661,23 @@ class EmotionRecommenderApp:
             self.canvas = None
         
         # Add refresh button
-        refresh_btn = ttk.Button(analytics_frame, text="Refresh Analytics", command=self.update_analytics)
+        refresh_btn = ctk.CTkButton(analytics_frame, text="Refresh Analytics", command=self.update_analytics)
         refresh_btn.pack(pady=10)
-
-    def create_styled_frame(self, parent, title):
-        frame = tk.LabelFrame(parent, text=f" {title} ", bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=(FONT_FAMILY, 12, "bold"), relief="groove", padx=10, pady=10)
-        frame.pack(fill="both", expand=True, pady=10)
-        return frame
 
     def toggle_camera(self):
         """Toggles the camera on/off"""
         if self.is_camera_running:
             self.is_camera_running = False
-            self.camera_button.config(text="Start Camera")
-            self.take_photo_button.config(state="disabled")
+            self.camera_button.configure(text="Start Camera")
+            self.take_photo_button.configure(state="disabled")
             if self.video_thread:
                 self.video_thread.join()
-            self.video_label.config(image='')
+            self.video_label.configure(image='', bg='black') # tk.Label uses config/configure
             self.video_label.configure(bg="black")
         else:
             self.is_camera_running = True
-            self.camera_button.config(text="Stop Camera")
-            self.take_photo_button.config(state="normal")
+            self.camera_button.configure(text="Stop Camera")
+            self.take_photo_button.configure(state="normal")
             self.video_thread = threading.Thread(target=self.video_loop)
             self.video_thread.daemon = True
             self.video_thread.start()
@@ -749,6 +764,9 @@ class EmotionRecommenderApp:
              self.is_camera_running = False
              return
 
+        last_analysis_time = 0
+        analysis_interval = 3.0  # Seconds between analysis
+
         while self.is_camera_running:
             try:
                 ret, frame = cap.read()
@@ -760,28 +778,45 @@ class EmotionRecommenderApp:
                 # Store frame for capture
                 self.current_frame = frame.copy()
                 
-                # Analyze Frame using Vision Module
-                # This returns (emotions, processed_frame, face_detected)
-                self.visual_emotions, processed_frame, face_detected = self.vision_analyzer.analyze_frame(frame)
+                # Analyze Frame periodically
+                current_time = time.time()
+                is_analyzing = (current_time - last_analysis_time >= analysis_interval)
                 
-                # [DEBUG] Check dimensions
-                if processed_frame is None:
-                     print("[DEBUG] Processed frame is None!")
-                     continue
-
-                self.face_detected = face_detected
+                img_to_show = frame # Default to raw frame
                 
-                # Handle Face Not Detected UI
-                if not face_detected:
-                     if not self.face_dialog_shown:
-                          self.root.after(0, self.show_face_not_detected_dialog)
-                          self.face_dialog_shown = True
-                else:
-                     self.face_dialog_shown = False
+                if is_analyzing:
+                    last_analysis_time = current_time
+                    # This returns (emotions, processed_frame, face_detected)
+                    self.visual_emotions, processed_frame, face_detected = self.vision_analyzer.analyze_frame(frame)
+                    
+                    self.face_detected = face_detected
+                    
+                    # Use processed frame if available (shows boxes)
+                    if processed_frame is not None:
+                        img_to_show = processed_frame
+                    
+                    # Store last processed frame for "stickiness" if we wanted, 
+                    # but for now we just show raw frame in between to remain smooth.
+                    # Or we could just not update the video label with boxes in between.
+                    
+                    # Handle Face Not Detected UI only on analysis check
+                    if not face_detected:
+                         if not self.face_dialog_shown:
+                              self.root.after(0, self.show_face_not_detected_dialog)
+                              self.face_dialog_shown = True
+                    else:
+                         self.face_dialog_shown = False
+                
+                # If NOT analyzing, we can optionally overlay the LAST known emotion/box 
+                # if we stored it, but simply showing the raw live feed is capable enough 
+                # and prevents "stuck" boxes on moving faces. 
                 
                 # Convert for Tkinter
                 try:
-                    img = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+                    # Resize for display if needed (optional)
+                    # frame = cv2.resize(frame, (640, 480)) 
+                    
+                    img = cv2.cvtColor(img_to_show, cv2.COLOR_BGR2RGB)
                     img = Image.fromarray(img)
                     img_tk = ImageTk.PhotoImage(image=img)
                 except Exception as img_err:
@@ -792,8 +827,8 @@ class EmotionRecommenderApp:
                 def update_video():
                     try:
                         if hasattr(self, 'video_label') and hasattr(self, 'root'):
+                            self.video_label.configure(image=img_tk) # Use configure
                             self.video_label.img = img_tk
-                            self.video_label.config(image=img_tk)
                     except Exception as ui_err:
                         print(f"[DEBUG] UI update error: {ui_err}")
                 
@@ -815,13 +850,12 @@ class EmotionRecommenderApp:
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         # Create a popup window
-        popup = tk.Toplevel(self.root)
+        popup = ctk.CTkToplevel(self.root)
         popup.title("Captured Photo")
         popup.geometry("700x600")
-        popup.configure(bg=BACKGROUND_COLOR)
         
         # Create a frame for the image
-        frame = tk.Frame(popup, bg=BACKGROUND_COLOR, bd=2, relief=tk.RIDGE)
+        frame = ctk.CTkFrame(popup, fg_color="transparent")
         frame.pack(padx=20, pady=20, fill="both", expand=True)
         
         # Convert the image to a format tkinter can use
@@ -831,24 +865,23 @@ class EmotionRecommenderApp:
         # Keep a reference to prevent garbage collection
         popup.img = img
         
-        # Display the image
-        label = tk.Label(frame, image=img, bg=BACKGROUND_COLOR)
+        # Display the image - use tk.Label for image inside CTk
+        label = tk.Label(frame, image=img, bg="#2b2b2b")
         label.pack(padx=10, pady=10)
         
         # Add emotion analysis results
-        emotions_frame = tk.Frame(popup, bg=BACKGROUND_COLOR)
+        emotions_frame = ctk.CTkFrame(popup, fg_color="transparent")
         emotions_frame.pack(padx=20, pady=(0, 20), fill="x")
         
         # Display emotion scores
         for emotion, score in self.captured_visual_emotions.items():
-            emotion_label = tk.Label(emotions_frame, 
+            emotion_label = ctk.CTkLabel(emotions_frame, 
                                      text=f"{emotion.capitalize()}: {score:.2f}", 
-                                     font=("Arial", 12),
-                                     bg=BACKGROUND_COLOR)
+                                     font=(FONT_FAMILY, 12))
             emotion_label.pack(side="left", padx=10)
         
         # Add a close button
-        close_button = ttk.Button(popup, text="Close", command=popup.destroy)
+        close_button = ctk.CTkButton(popup, text="Close", command=popup.destroy)
         close_button.pack(pady=(0, 20))
 
     def update_facial_emotion_display(self, use_captured=False):
@@ -863,21 +896,19 @@ class EmotionRecommenderApp:
                 
                 # Update progress bars with visual feedback for dominant emotion
                 for emotion, value in emotions_to_display.items():
-                    # Set progress bar value
-                    self.facial_emotion_bars[emotion]['value'] = value * 100
+                    # Set progress bar value (0.0 to 1.0)
+                    self.facial_emotion_bars[emotion].set(value)
                     
                     # Highlight only the dominant emotion
                     if emotion == dominant_emotion:
-                        # Apply style for dominant emotion
-                        self.facial_emotion_bars[emotion].configure(style="Dominant.Horizontal.TProgressbar")
+                        self.facial_emotion_bars[emotion].configure(progress_color=self.get_emotion_color(emotion))
                     else:
-                        # Reset style for non-dominant emotions
-                        self.facial_emotion_bars[emotion].configure(style="Horizontal.TProgressbar")
+                        self.facial_emotion_bars[emotion].configure(progress_color="#3498db") # Default blue
             else:
                 # Reset all progress bars if no emotions detected
                 for emotion in EMOTIONS:
-                    self.facial_emotion_bars[emotion]['value'] = 0
-                    self.facial_emotion_bars[emotion].configure(style="Horizontal.TProgressbar")
+                    self.facial_emotion_bars[emotion].set(0)
+                    self.facial_emotion_bars[emotion].configure(progress_color="#3498db")
         except Exception as e:
             print(f"Error updating facial display: {e}")
     
@@ -885,22 +916,21 @@ class EmotionRecommenderApp:
         """Show a dialog when face is not detected in the frame"""
         # This function is now only called from the main thread
         try:
-            dialog = tk.Toplevel(self.root)
+            dialog = ctk.CTkToplevel(self.root)
             dialog.title("Face Not Detected")
             dialog.geometry("300x150")
-            dialog.configure(bg=BACKGROUND_COLOR)
             
             # Make dialog modal
             dialog.transient(self.root)
             dialog.grab_set()
             
             # Add message
-            message = tk.Label(dialog, text="No face detected in the frame.\nPlease position yourself in front of the camera.",
-                                bg=BACKGROUND_COLOR, fg=TEXT_COLOR, font=(FONT_FAMILY, 12))
+            message = ctk.CTkLabel(dialog, text="No face detected in the frame.\nPlease position yourself in front of the camera.",
+                                font=(FONT_FAMILY, 12))
             message.pack(pady=20, padx=20)
             
             # Add OK button
-            ok_button = ttk.Button(dialog, text="OK", command=dialog.destroy)
+            ok_button = ctk.CTkButton(dialog, text="OK", command=dialog.destroy)
             ok_button.pack(pady=10)
             
             # Auto-close after 3 seconds
@@ -912,18 +942,17 @@ class EmotionRecommenderApp:
         """Show a confirmation message when emotion is captured"""
         # This function is called from the main thread (take_photo)
         try:
-            dialog = tk.Toplevel(self.root)
+            dialog = ctk.CTkToplevel(self.root)
             dialog.title("Emotion Captured")
             dialog.geometry("300x120")
-            dialog.configure(bg=BACKGROUND_COLOR)
             
             # Make dialog modal
             dialog.transient(self.root)
             dialog.grab_set()
             
             # Add message
-            msg_label = tk.Label(dialog, text=message,
-                                bg=BACKGROUND_COLOR, fg="#2ecc71", font=(FONT_FAMILY, 12, "bold"))
+            msg_label = ctk.CTkLabel(dialog, text=message,
+                                text_color="#2ecc71", font=(FONT_FAMILY, 12, "bold"))
             msg_label.pack(pady=20, padx=20)
             
             # Auto-close after 2 seconds
@@ -935,22 +964,21 @@ class EmotionRecommenderApp:
         """Shows an error message dialog"""
         # This function is called from the main thread (take_photo)
         try:
-            dialog = tk.Toplevel(self.root)
+            dialog = ctk.CTkToplevel(self.root)
             dialog.title("Error")
             dialog.geometry("300x150")
-            dialog.configure(bg=BACKGROUND_COLOR)
             
             # Make dialog modal
             dialog.transient(self.root)
             dialog.grab_set()
             
             # Add message
-            msg_label = tk.Label(dialog, text=message,
-                                bg=BACKGROUND_COLOR, fg="#e74c3c", font=(FONT_FAMILY, 12, "bold"))
+            msg_label = ctk.CTkLabel(dialog, text=message,
+                                text_color="#e74c3c", font=(FONT_FAMILY, 12, "bold"))
             msg_label.pack(pady=20, padx=20)
             
             # Add OK button
-            ok_button = ttk.Button(dialog, text="OK", command=dialog.destroy)
+            ok_button = ctk.CTkButton(dialog, text="OK", command=dialog.destroy)
             ok_button.pack(pady=10)
         except Exception as e:
             print(f"Error showing error dialog: {e}")
@@ -959,19 +987,19 @@ class EmotionRecommenderApp:
         """Handle text input focus in - remove placeholder text"""
         if self.text_input.get("1.0", "end-1c").strip() == "Type how you feel or use voice input to express your emotions...":
             self.text_input.delete("1.0", "end")
-            self.text_input.config(fg=TEXT_COLOR)
+            self.text_input.configure(text_color=TEXT_COLOR)
     
     def on_text_focus_out(self, event):
         """Handle text input focus out - add placeholder if empty"""
         if not self.text_input.get("1.0", "end-1c").strip():
             self.text_input.insert("1.0", "Type how you feel or use voice input to express your emotions...")
-            self.text_input.config(fg="#95a5a6")
+            self.text_input.configure(text_color="#95a5a6")
     
     def clear_text_input(self):
         """Clear the text input area"""
         self.text_input.delete("1.0", "end")
         self.text_input.insert("1.0", "Type how you feel or use voice input to express your emotions...")
-        self.text_input.config(fg="#95a5a6")
+        self.text_input.configure(text_color="#95a5a6")
         self.update_text_analysis()
     
     def toggle_voice_recording(self):
@@ -993,8 +1021,8 @@ class EmotionRecommenderApp:
                 pass  # Just test if we can access the microphone
             
             self.is_voice_recording = True
-            self.voice_button.config(text="[STOP] Stop Voice Input")
-            self.voice_status_label.config(text="Voice: Starting...", fg="#f39c12")
+            self.voice_button.configure(text="[STOP] Stop Voice Input")
+            self.voice_status_label.configure(text="Voice: Starting...", text_color="#f39c12")
             
             # Start recording in a separate thread
             self.voice_recording_thread = threading.Thread(target=self.voice_recording_loop)
@@ -1007,20 +1035,20 @@ class EmotionRecommenderApp:
             messagebox.showerror("Voice Input Error", 
                 f"{error_msg}\n\nPlease check:\n- Microphone is connected\n- Microphone permissions are granted\n- No other apps are using the microphone")
             self.is_voice_recording = False
-            self.voice_button.config(text="[MIC] Start Voice Input")
-            self.voice_status_label.config(text="Voice: Error", fg="#e74c3c")
+            self.voice_button.configure(text="[MIC] Start Voice Input")
+            self.voice_status_label.configure(text="Voice: Error", text_color="#e74c3c")
     
     def stop_voice_recording(self):
         """Stop voice recording"""
         self.is_voice_recording = False
-        self.voice_button.config(text="[MIC] Start Voice Input")
-        self.voice_status_label.config(text="Voice: Stopping...", fg="#f39c12")
+        self.voice_button.configure(text="[MIC] Start Voice Input")
+        self.voice_status_label.configure(text="Voice: Stopping...", text_color="#f39c12")
         
         # Wait for recording thread to finish
         if self.voice_recording_thread and self.voice_recording_thread.is_alive():
             self.voice_recording_thread.join(timeout=2)
         
-        self.voice_status_label.config(text="Voice: Ready", fg="#2ecc71")
+        self.voice_status_label.configure(text="Voice: Ready", text_color="#2ecc71")
     
     def voice_recording_loop(self):
         """Main voice recording loop with improved error handling and functionality"""
@@ -1030,7 +1058,7 @@ class EmotionRecommenderApp:
                 self.recognition_engine.adjust_for_ambient_noise(source, duration=0.5)
                 
                 # Update status to show we're ready to listen
-                self.root.after(0, lambda: self.voice_status_label.config(text="Voice: Listening...", fg="#f39c12"))
+                self.root.after(0, lambda: self.voice_status_label.configure(text="Voice: Listening...", text_color="#f39c12"))
                 
                 while self.is_voice_recording:
                     try:
@@ -1038,7 +1066,7 @@ class EmotionRecommenderApp:
                         audio = self.recognition_engine.listen(source, timeout=0.5, phrase_time_limit=8)
                         
                         # Update status to show we're processing
-                        self.root.after(0, lambda: self.voice_status_label.config(text="Voice: Processing...", fg="#3498db"))
+                        self.root.after(0, lambda: self.voice_status_label.configure(text="Voice: Processing...", text_color="#3498db"))
                         
                         # Recognize speech using Google Speech Recognition
                         text = self.recognition_engine.recognize_google(audio)
@@ -1050,7 +1078,7 @@ class EmotionRecommenderApp:
                                     current = self.text_input.get("1.0", "end-1c")
                                     if current == "Type how you feel or use voice input to express your emotions...":
                                         self.text_input.delete("1.0", "end")
-                                        self.text_input.config(fg=TEXT_COLOR)
+                                        self.text_input.configure(text_color=TEXT_COLOR)
                                         current = ""
                                     
                                     # Add transcribed text with timestamp
@@ -1062,7 +1090,7 @@ class EmotionRecommenderApp:
                                     
                                     # Update status with success message
                                     display_text = text.strip()[:30] + "..." if len(text.strip()) > 30 else text.strip()
-                                    self.voice_status_label.config(text=f"Voice: OK '{display_text}'", fg="#2ecc71")
+                                    self.voice_status_label.configure(text=f"Voice: OK '{display_text}'", text_color="#2ecc71")
                                 except Exception as e:
                                     print(f"Error updating text from voice: {e}")
                             
@@ -1073,18 +1101,18 @@ class EmotionRecommenderApp:
                         continue
                     except sr.UnknownValueError:
                         # Speech was unintelligible - show brief error then continue
-                        self.root.after(0, lambda: self.voice_status_label.config(text="Voice: Could not understand - try again", fg="#f39c12"))
+                        self.root.after(0, lambda: self.voice_status_label.configure(text="Voice: Could not understand - try again", text_color="#f39c12"))
                         time.sleep(1)  # Brief pause before continuing
                         continue
                     except sr.RequestError as e:
                         # API was unreachable or unresponsive
-                        self.root.after(0, lambda: self.voice_status_label.config(text="Voice: Network error - check internet", fg="#e74c3c"))
+                        self.root.after(0, lambda: self.voice_status_label.configure(text="Voice: Network error - check internet", text_color="#e74c3c"))
                         time.sleep(2)  # Longer pause for network issues
                         continue
                     except Exception as e:
                         # Other errors
                         print(f"Voice recognition error: {e}")
-                        self.root.after(0, lambda: self.voice_status_label.config(text="Voice: Error occurred", fg="#e74c3c"))
+                        self.root.after(0, lambda: self.voice_status_label.configure(text="Voice: Error occurred", text_color="#e74c3c"))
                         time.sleep(1)
                         continue
                         
@@ -1094,7 +1122,7 @@ class EmotionRecommenderApp:
             error_str = str(e)  # Capture error message explicitly
             self.root.after(0, lambda msg=error_str: messagebox.showerror("Voice Input Error", 
                 f"Could not initialize voice recording.\n\nError: {msg}\n\nPlease check:\n- Microphone permissions\n- Internet connection\n- No other apps using microphone"))
-            self.root.after(0, lambda: self.voice_status_label.config(text="Voice: Setup failed", fg="#e74c3c"))
+            self.root.after(0, lambda: self.voice_status_label.configure(text="Voice: Setup failed", text_color="#e74c3c"))
     
     def start_audio_visualization(self):
         """Start audio level visualization with safety checks"""
@@ -1114,7 +1142,7 @@ class EmotionRecommenderApp:
         except Exception as e:
             print(f"[ERROR] Failed to start audio visualization: {e}")
             if hasattr(self, 'audio_level_label'):
-                self.audio_level_label.config(text="Audio: Error", fg="#e74c3c")
+                self.audio_level_label.configure(text="Audio: Error", text_color="#e74c3c")
 
     def start_audio_processing(self):
         """Initialize a single shared PyAudio stream and start reader thread"""
@@ -1241,7 +1269,7 @@ class EmotionRecommenderApp:
                     def update_audio_level():
                         try:
                             if hasattr(self, 'root') and hasattr(self, 'audio_level_label'):
-                                self.audio_level_label.config(text=f"Audio Level: {db_value:.1f} dB")
+                                self.audio_level_label.configure(text=f"Audio Level: {db_value:.1f} dB")
                                 self.update_audio_waveform(rms_value)
                         except (tk.TclError, AttributeError, RuntimeError):
                             pass  # Window already destroyed or being destroyed
@@ -1342,13 +1370,13 @@ class EmotionRecommenderApp:
                     if hasattr(self, 'text_emotion_bars'):
                         for emotion, value in self.text_emotions.items():
                             if emotion in self.text_emotion_bars:
-                                self.text_emotion_bars[emotion]['value'] = value * 100
+                                self.text_emotion_bars[emotion].set(value)
                                 
                                 # Highlight dominant emotion
                                 if emotion == dominant_emotion:
-                                    self.text_emotion_bars[emotion].configure(style="Dominant.Horizontal.TProgressbar")
+                                    self.text_emotion_bars[emotion].configure(progress_color=self.get_emotion_color(emotion))
                                 else:
-                                    self.text_emotion_bars[emotion].configure(style="Horizontal.TProgressbar")
+                                    self.text_emotion_bars[emotion].configure(progress_color="#3498db")
         except Exception as e:
             print(f"Error in text analysis: {e}")
 
@@ -1409,22 +1437,20 @@ class EmotionRecommenderApp:
                 # Update progress bars with visual feedback for dominant emotion
                 for emotion, value in emotions_to_display.items():
                     if emotion in self.audio_emotion_bars:
-                        # Set progress bar value
-                        self.audio_emotion_bars[emotion]['value'] = value * 100
+                         # Set progress bar value
+                        self.audio_emotion_bars[emotion].set(value)
                         
                         # Highlight only the dominant emotion
                         if emotion == dominant_emotion:
-                            # Apply style for dominant emotion
-                            self.audio_emotion_bars[emotion].configure(style="Dominant.Horizontal.TProgressbar")
+                            self.audio_emotion_bars[emotion].configure(progress_color=self.get_emotion_color(emotion))
                         else:
-                            # Reset style for non-dominant emotions
-                            self.audio_emotion_bars[emotion].configure(style="Horizontal.TProgressbar")
+                            self.audio_emotion_bars[emotion].configure(progress_color="#3498db")
             else:
                 # Reset all progress bars if no emotions detected
                 for emotion in EMOTIONS:
                     if emotion in self.audio_emotion_bars:
-                        self.audio_emotion_bars[emotion]['value'] = 0
-                        self.audio_emotion_bars[emotion].configure(style="Horizontal.TProgressbar")
+                        self.audio_emotion_bars[emotion].set(0)
+                        self.audio_emotion_bars[emotion].configure(progress_color="#3498db")
         except Exception as e:
             print(f"Error updating audio display: {e}")
                 
@@ -1574,15 +1600,15 @@ class EmotionRecommenderApp:
                 
                 # Update Labels
                 if hasattr(self, 'dominant_emotion_label'):
-                    self.dominant_emotion_label.config(
+                    self.dominant_emotion_label.configure(
                         text=f"{dominant_emotion.capitalize()}",
-                        fg=color
+                        text_color=color
                     )
                 
                 if hasattr(self, 'confidence_label'):
-                    self.confidence_label.config(
+                    self.confidence_label.configure(
                         text=f"Confidence: {confidence:.2f}",
-                        fg="#2ecc71" if confidence > 0.5 else "#f39c12"
+                        text_color="#2ecc71" if confidence > 0.5 else "#f39c12"
                     )
                     
                 # Update Recommendation (every 10th frame)
@@ -1593,20 +1619,20 @@ class EmotionRecommenderApp:
                             self.emotion_history,
                             current_time
                         )
-                        self.recommendation_label.config(text=rec_text)
+                        self.recommendation_label.configure(text=rec_text)
 
                 # Update Progress Bars
                 if hasattr(self, 'facial_emotion_bars'):
                     for emotion, bar in self.facial_emotion_bars.items():
-                        bar['value'] = self.visual_emotions.get(emotion, 0.0) * 100
+                        bar.set(self.visual_emotions.get(emotion, 0.0))
                 
                 if hasattr(self, 'text_emotion_bars'):
                     for emotion, bar in self.text_emotion_bars.items():
-                        bar['value'] = self.text_emotions.get(emotion, 0.0) * 100
+                        bar.set(self.text_emotions.get(emotion, 0.0))
                         
                 if hasattr(self, 'audio_emotion_bars'):
                     for emotion, bar in self.audio_emotion_bars.items():
-                        bar['value'] = self.audio_emotions.get(emotion, 0.0) * 100
+                        bar.set(self.audio_emotions.get(emotion, 0.0))
 
             # Update Analytics (every 10th frame)
             self.analysis_count += 1

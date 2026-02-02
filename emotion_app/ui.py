@@ -425,7 +425,8 @@ class EmotionRecommenderApp:
 
     def create_widgets(self):
         """Creates and arranges all UI widgets."""
-        main_frame = ctk.CTkFrame(self.root, fg_color="transparent")
+        # Use CTkScrollableFrame for the main content area to handle overflow
+        main_frame = ctk.CTkScrollableFrame(self.root, fg_color="transparent")
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
         # --- Left Panel: Inputs ---
@@ -483,6 +484,12 @@ class EmotionRecommenderApp:
         self.voice_status_label = ctk.CTkLabel(voice_controls_frame, text="Voice: Ready", text_color="#2ecc71", font=(FONT_FAMILY, 12, "bold"))
         self.voice_status_label.pack(side="left", padx=(0, 10))
         
+        # Text Analysis Toggle
+        self.is_text_analysis_active = True
+        self.text_analysis_switch = ctk.CTkSwitch(voice_controls_frame, text="Real-time Analysis", command=self.toggle_text_analysis)
+        self.text_analysis_switch.select()
+        self.text_analysis_switch.pack(side="left", padx=(0, 10))
+
         # Clear text button
         clear_button = ctk.CTkButton(voice_controls_frame, text="Clear Text", command=self.clear_text_input, fg_color="#e74c3c", hover_color="#c0392b") # Red color handling
         clear_button.pack(side="right")
@@ -541,6 +548,11 @@ class EmotionRecommenderApp:
         # Audio capture button
         self.audio_capture_button = ctk.CTkButton(voice_control_frame, text="[AUDIO] Capture Voice Emotion", command=self.capture_audio_emotion)
         self.audio_capture_button.pack(side="left", padx=(0, 10))
+        
+        # Audio visualization toggle
+        self.is_audio_visualization_active = True
+        self.audio_spectrum_button = ctk.CTkButton(voice_control_frame, text="Stop Audio Visualizer", command=self.toggle_audio_visualization, width=120)
+        self.audio_spectrum_button.pack(side="left", padx=(0, 10))
         
         # Audio level indicator
         self.audio_level_label = ctk.CTkLabel(voice_control_frame, text="Audio Level: --", text_color="#f39c12", font=(FONT_FAMILY, 12))
@@ -764,9 +776,9 @@ class EmotionRecommenderApp:
              self.is_camera_running = False
              return
 
-        last_analysis_time = 0
-        analysis_interval = 3.0  # Seconds between analysis
-
+        last_data_update_time = 0
+        data_update_interval = 5.0  # Seconds between emotion DATA updates
+        
         while self.is_camera_running:
             try:
                 ret, frame = cap.read()
@@ -778,28 +790,22 @@ class EmotionRecommenderApp:
                 # Store frame for capture
                 self.current_frame = frame.copy()
                 
-                # Analyze Frame periodically
+                # Analyze Frame continuously for TRACKING (boxes)
+                # We interpret "continuously present" as running detection every frame (or as fast as possible)
+                # But we only update the registered emotions every 5 seconds.
+                current_emotions, processed_frame, face_detected = self.vision_analyzer.analyze_frame(frame)
+                
+                # Update visual tracking immediately
+                img_to_show = processed_frame if processed_frame is not None else frame
+                
+                # Update Logic Data (Gated)
                 current_time = time.time()
-                is_analyzing = (current_time - last_analysis_time >= analysis_interval)
-                
-                img_to_show = frame # Default to raw frame
-                
-                if is_analyzing:
-                    last_analysis_time = current_time
-                    # This returns (emotions, processed_frame, face_detected)
-                    self.visual_emotions, processed_frame, face_detected = self.vision_analyzer.analyze_frame(frame)
-                    
+                if current_time - last_data_update_time >= data_update_interval:
+                    last_data_update_time = current_time
+                    self.visual_emotions = current_emotions
                     self.face_detected = face_detected
                     
-                    # Use processed frame if available (shows boxes)
-                    if processed_frame is not None:
-                        img_to_show = processed_frame
-                    
-                    # Store last processed frame for "stickiness" if we wanted, 
-                    # but for now we just show raw frame in between to remain smooth.
-                    # Or we could just not update the video label with boxes in between.
-                    
-                    # Handle Face Not Detected UI only on analysis check
+                    # Handle Face Not Detected UI only on data update check
                     if not face_detected:
                          if not self.face_dialog_shown:
                               self.root.after(0, self.show_face_not_detected_dialog)
@@ -807,15 +813,8 @@ class EmotionRecommenderApp:
                     else:
                          self.face_dialog_shown = False
                 
-                # If NOT analyzing, we can optionally overlay the LAST known emotion/box 
-                # if we stored it, but simply showing the raw live feed is capable enough 
-                # and prevents "stuck" boxes on moving faces. 
-                
                 # Convert for Tkinter
                 try:
-                    # Resize for display if needed (optional)
-                    # frame = cv2.resize(frame, (640, 480)) 
-                    
                     img = cv2.cvtColor(img_to_show, cv2.COLOR_BGR2RGB)
                     img = Image.fromarray(img)
                     img_tk = ImageTk.PhotoImage(image=img)
@@ -834,7 +833,7 @@ class EmotionRecommenderApp:
                 
                 self.root.after(0, update_video)
                 
-                # Performance delay
+                # Minimal delay for performance
                 time.sleep(0.01)
 
             except Exception as e:
@@ -1124,6 +1123,24 @@ class EmotionRecommenderApp:
                 f"Could not initialize voice recording.\n\nError: {msg}\n\nPlease check:\n- Microphone permissions\n- Internet connection\n- No other apps using microphone"))
             self.root.after(0, lambda: self.voice_status_label.configure(text="Voice: Setup failed", text_color="#e74c3c"))
     
+    def toggle_text_analysis(self):
+        """Toggles text analysis on/off"""
+        if self.text_analysis_switch.get() == 1:
+            self.is_text_analysis_active = True
+        else:
+            self.is_text_analysis_active = False
+            
+    def toggle_audio_visualization(self):
+        """Toggles audio visualization"""
+        if self.is_audio_visualization_active:
+            self.is_audio_visualization_active = False
+            self.audio_spectrum_button.configure(text="Start Audio Visualizer")
+            # Clear canvas
+            self.audio_canvas.delete("all")
+        else:
+            self.is_audio_visualization_active = True
+            self.audio_spectrum_button.configure(text="Stop Audio Visualizer")
+
     def start_audio_visualization(self):
         """Start audio level visualization with safety checks"""
         try:
@@ -1352,6 +1369,10 @@ class EmotionRecommenderApp:
     def update_text_analysis(self, event=None):
         """Analyze text emotion when typing"""
         try:
+            # Check if text analysis is active
+            if hasattr(self, 'is_text_analysis_active') and not self.is_text_analysis_active:
+                return
+
             # This is called by a tkinter event, so it's already on the main thread
             text_content = self.text_input.get("1.0", "end-1c").strip()
             
@@ -1673,8 +1694,8 @@ class EmotionRecommenderApp:
             
         # Calculate emotional stability score
         stability_score = self.calculate_stability_score()
-        self.stability_score_label.config(text=f"{stability_score:.1f}%")
-        self.stability_progress['value'] = stability_score
+        self.stability_score_label.configure(text=f"{stability_score:.1f}%")
+        self.stability_progress.set(stability_score / 100.0) # CTkProgressBar uses 0.0 to 1.0
         
         # Clear the canvas
         self.ax.clear()
